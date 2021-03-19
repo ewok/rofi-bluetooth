@@ -256,7 +256,18 @@ show_menu() {
 
         # Human-readable names of devices, one per line
         # If scan is off, will only list paired devices
-        devices=$(bluetoothctl devices | grep Device | cut -d ' ' -f 3-)
+        devices=$(
+        for device in $(bluetoothctl devices | grep Device | awk '{print $2"|"$3"\n"}')
+        do
+            device_name=$(echo $device | cut -d '|' -f 2-)
+            mac=$(echo $device | cut -d '|' -f 1)
+            if device_connected "$mac"
+            then
+                echo "$device_name(connected)"
+            else
+                echo "$device_name"
+            fi
+        done)
 
         # Get controller flags
         scan=$(scan_on)
@@ -291,15 +302,20 @@ show_menu() {
             toggle_pairable
             ;;
         *)
-            device=$(bluetoothctl devices | grep "$chosen")
+            orig_chosen=$(echo "$chosen" | sed 's/(connected)//g')
+            device=$(bluetoothctl devices | grep "$orig_chosen")
             # Open a submenu if a device is selected
             if [[ $device ]]; then device_menu "$device"; fi
             ;;
     esac
 }
 
-# Rofi command to pipe into, can add any options here
-rofi_command="rofi -dmenu -no-fixed-num-lines -yoffset -100 -i -p"
+rofi_command="rofi -dmenu -no-fixed-num-lines -yoffset -100 -i"
+
+if [ "$ROFI_THEME" != "" ];then
+rofi_command="$rofi_command -theme $ROFI_THEME"
+fi
+rofi_command="$rofi_command -p"
 
 case "$1" in
     --status)
